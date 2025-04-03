@@ -6,11 +6,20 @@ from sqlite3 import Error
 from bs4 import BeautifulSoup
 import time as tm
 from itertools import groupby
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
+from datetime import time as datetime_time
 import pandas as pd
 from urllib.parse import quote
 from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import time
+import random
+
+no_jobs_skipped_notification_count = 0
+MAX_SKIPPED_NOTIFICATIONS = 0 # ideally every 4 hours
 
 
 def load_config(file_name):
@@ -226,6 +235,8 @@ def job_exists(df, job):
 def get_jobcards(config):
     #Function to get the job cards from the search results page
     all_jobs = []
+    artificial_delay_min = int(config['artificial_delay_range']['from_seconds'])
+    artificial_delay_max = int(config['artificial_delay_range']['to_seconds'])
     for k in range(0, config['rounds']):
         for query in config['search_queries']:
             keywords = quote(query['keywords']) # URL encode the keywords
@@ -236,6 +247,10 @@ def get_jobcards(config):
                 jobs = transform(soup)
                 all_jobs = all_jobs + jobs
                 print("Finished scraping page: ", url)
+                if artificial_delay_min != artificial_delay_max:
+                    random_millis_to_wait = random.randrange(artificial_delay_min*1000, artificial_delay_max*1000)
+                    print(f"Sleeping for {random_millis_to_wait}ms between calls")
+                    time.sleep(random_millis_to_wait/1000)
     print ("Total job cards scraped: ", len(all_jobs))
     all_jobs = remove_duplicates(all_jobs, config)
     print ("Total job cards after removing duplicates: ", len(all_jobs))
@@ -273,12 +288,13 @@ def main(config_file):
     #filtering out jobs that are already in the database
     all_jobs = find_new_jobs(all_jobs, conn, config)
     print ("Total new jobs found after comparing to the database: ", len(all_jobs))
+    send_mail(all_jobs)
 
     if len(all_jobs) > 0:
 
         for job in all_jobs:
             job_date = convert_date_format(job['date'])
-            job_date = datetime.combine(job_date, time())
+            job_date = datetime.combine(job_date, datetime_time())
             #if job is older than a week, skip it
             if job_date < datetime.now() - timedelta(days=config['days_to_scrape']):
                 continue
@@ -325,10 +341,78 @@ def main(config_file):
     end_time = tm.perf_counter()
     print(f"Scraping finished in {end_time - start_time:.2f} seconds")
 
+def get_email_html(new_jobs):
+    message = ""
+    if len(new_jobs) == 0:
+        message += "Unfortunately no new job has been posted matching the criteria.<br/><br/>Be patient and persevere!<br/><br/>Best regards,<br/>Yourself"
+    else:
+        message += "These are the new jobs posted since the last notification:<br/>"
+        message += "<ul>"
+        for job in new_jobs:
+            message += f"\t<li><b>{job['title']}</b> at <b>{job['company']}</b>. <a href=\"{job['job_url']}\">Go to vacancy</a>.</li>"
+        message += "</ul>"
+
+    return message
+
+
+def send_mail(new_jobs):
+    global no_jobs_skipped_notification_count, MAX_SKIPPED_NOTIFICATIONS
+
+    password_file = "app_password.txt"
+
+    google_app_password = ""
+    with open(password_file, 'r') as file:
+        google_app_password = file.read().rstrip()
+
+
+    email_address_from = 'msk1416@gmail.com'
+    email_address_to = email_address_from
+
+    smtpserver = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+    smtpserver.ehlo()
+    smtpserver.login(email_address_from, google_app_password)
+
+    # Test send mail
+    sent_from = email_address_from
+    sent_to = email_address_to
+    subject = ""
+    email_html = ""
+    skip_notification = False
+    if len(new_jobs):
+        subject = f"{len(new_jobs)} new job(s) posted!"
+        email_html = get_email_html(new_jobs)
+    else:
+        if no_jobs_skipped_notification_count >= MAX_SKIPPED_NOTIFICATIONS:
+            subject = "Unfortunately, still no new jobs"
+            no_jobs_skipped_notification_count = 0
+            email_html = get_email_html(new_jobs)
+        else:
+            no_jobs_skipped_notification_count = no_jobs_skipped_notification_count+1
+            skip_notification = True
+
+    if not skip_notification:     
+        message = MIMEMultipart('alternative')
+        message['Subject'] = subject
+        message['From'] =sent_from
+        message['To'] = sent_to
+        part = MIMEText(email_html, 'html')
+        message.attach(part)
+        smtpserver.sendmail(sent_from, sent_to, message.as_string())
+
+    # Close the connection
+    smtpserver.close()
 
 if __name__ == "__main__":
-    config_file = 'config.json'  # default config file
-    if len(sys.argv) == 2:
-        config_file = sys.argv[1]
+    iteration = 0
+    no_jobs_skipped_notification_count = 0
+    MAX_SKIPPED_NOTIFICATIONS = 0 # ideally every 4 hours
+    while True:
+        iteration = iteration+1
+        print(f"Iteration: {iteration}")
+        config_file = 'config.json'  # default config file
+        if len(sys.argv) == 2:
+            config_file = sys.argv[1]
         
-    main(config_file)
+        main(config_file)
+        print("Sleeping for 1 hour...")
+        time.sleep(1 * 60 * 60)

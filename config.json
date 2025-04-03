@@ -1,0 +1,37 @@
+{
+  "proxies": {
+
+  },
+  "headers": {
+    "User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+  },
+
+  "OpenAI_API_KEY": "",
+  "OpenAI_Model": "",
+  "resume_path": "full local path to your resume in PDF format",
+
+  "search_queries": [    
+    {"keywords": "Android developer", "location": "Netherlands", "f_WT": ""},
+    {"keywords": "Android engineer", "location": "Netherlands", "f_WT": ""}
+  ],
+  "desc_words": [
+    "javascript", "react", "flutter"
+  ],
+  "title_exclude": [],
+  "title_include": ["android"],
+  "company_exclude": ["bunq"],
+  "languages": ["en", "nl"],
+  "timespan": "r84600",
+  "jobs_tablename": "jobs",
+  "filtered_jobs_tablename": "filtered_jobs",
+  "db_path": "./data/my_database.db",
+  "pages_to_scrape": 10,
+  "rounds": 2,
+  "days_to_scrape": 10,
+  "app_table": "jobs",
+  "artificial_delay_range":{
+    "from_seconds":"3",
+    "to_seconds": "6"
+  }
+}
+  

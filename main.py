@@ -12,11 +12,11 @@ import pandas as pd
 from urllib.parse import quote
 from langdetect import detect
 from langdetect.lang_detect_exception import LangDetectException
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 import time
 import random
+import os
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 no_jobs_skipped_notification_count = 0
 MAX_SKIPPED_NOTIFICATIONS = 0 # ideally every 4 hours
@@ -235,8 +235,8 @@ def job_exists(df, job):
 def get_jobcards(config):
     #Function to get the job cards from the search results page
     all_jobs = []
-    artificial_delay_min = int(config['artificial_delay_range']['from_seconds'])
-    artificial_delay_max = int(config['artificial_delay_range']['to_seconds'])
+    artificial_delay_min = config['artificial_delay_range']['from_seconds']
+    artificial_delay_max = config['artificial_delay_range']['to_seconds']
     for k in range(0, config['rounds']):
         for query in config['search_queries']:
             keywords = quote(query['keywords']) # URL encode the keywords
@@ -288,7 +288,7 @@ def main(config_file):
     #filtering out jobs that are already in the database
     all_jobs = find_new_jobs(all_jobs, conn, config)
     print ("Total new jobs found after comparing to the database: ", len(all_jobs))
-    send_mail(all_jobs)
+    send_mail(all_jobs, config)
 
     if len(all_jobs) > 0:
 
@@ -355,24 +355,12 @@ def get_email_html(new_jobs):
     return message
 
 
-def send_mail(new_jobs):
+def send_mail(new_jobs, config):
     global no_jobs_skipped_notification_count, MAX_SKIPPED_NOTIFICATIONS
 
-    password_file = "app_password.txt"
-
-    google_app_password = ""
-    with open(password_file, 'r') as file:
-        google_app_password = file.read().rstrip()
-
-
     email_address_from = 'msk1416@gmail.com'
-    email_address_to = email_address_from
+    email_address_to = config["send_to"]
 
-    smtpserver = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-    smtpserver.ehlo()
-    smtpserver.login(email_address_from, google_app_password)
-
-    # Test send mail
     sent_from = email_address_from
     sent_to = email_address_to
     subject = ""
@@ -390,17 +378,21 @@ def send_mail(new_jobs):
             no_jobs_skipped_notification_count = no_jobs_skipped_notification_count+1
             skip_notification = True
 
-    if not skip_notification:     
-        message = MIMEMultipart('alternative')
-        message['Subject'] = subject
-        message['From'] =sent_from
-        message['To'] = sent_to
-        part = MIMEText(email_html, 'html')
-        message.attach(part)
-        smtpserver.sendmail(sent_from, sent_to, message.as_string())
+    if not skip_notification:
+        message = Mail(
+            from_email = sent_from,
+            to_emails = sent_to,
+            subject = subject,
+            html_content = email_html)
+        try:
+            sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+            response = sg.send(message)
+            print(response.status_code)
+            print(response.body)
+            print(response.headers)
+        except Exception as e:
+            print(e.message)
 
-    # Close the connection
-    smtpserver.close()
 
 if __name__ == "__main__":
     iteration = 0

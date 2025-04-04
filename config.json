@@ -29,9 +29,10 @@
   "rounds": 2,
   "days_to_scrape": 10,
   "app_table": "jobs",
-  "artificial_delay_range":{
-    "from_seconds":"3",
-    "to_seconds": "6"
-  }
+  "artificial_delay_range": {
+    "from_seconds": 3,
+    "to_seconds": 6
+  },
+  "send_to": "example@gmail.com"
 }
   

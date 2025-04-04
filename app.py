@@ -275,4 +275,4 @@ def verify_db_schema():
 
 if __name__ == "__main__":
     verify_db_schema()  # Verify the DB schema before running the app
-    app.run(debug=True, port=5001)
+    app.run(debug=False, port=5001, host="0.0.0.0")

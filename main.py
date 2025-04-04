@@ -406,5 +406,8 @@ if __name__ == "__main__":
             config_file = sys.argv[1]
         
         main(config_file)
-        print("Sleeping for 1 hour...")
-        time.sleep(1 * 60 * 60)
+
+        config = load_config(config_file)
+        sleep_minutes = config["sleep_time_between_runs_in_minutes"]
+        print(f"Sleeping for {sleep_minutes} minutes...")
+        time.sleep(sleep_minutes * 60)

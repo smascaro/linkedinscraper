@@ -12,3 +12,4 @@ indeed.py
 *.sh
 *.log
 SupabaseUpload/
+sendgrid.env

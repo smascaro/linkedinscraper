@@ -34,6 +34,8 @@
     "to_seconds": 6
   },
   "send_to": "example@gmail.com",
-  "sleep_time_between_runs_in_minutes": 60
+  "sleep_time_between_runs_in_minutes": 60,
+  "port": 5001
+  }
 }
   

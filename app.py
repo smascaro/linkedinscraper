@@ -5,6 +5,7 @@ import json
 import openai
 from pdfminer.high_level import extract_text
 from flask_cors import CORS
+import sys
 
 def load_config(file_name):
     # Load the config file
@@ -274,5 +275,8 @@ def verify_db_schema():
     conn.close()
 
 if __name__ == "__main__":
+    if len(sys.argv) == 2:
+        config_file = sys.argv[1]
+        
     verify_db_schema()  # Verify the DB schema before running the app
-    app.run(debug=False, port=5001, host="0.0.0.0")
+    app.run(debug=False, port=config["port"], host="0.0.0.0")
